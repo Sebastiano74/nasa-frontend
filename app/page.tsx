@@ -11,7 +11,6 @@ import {
 } from '@/components/ui/table';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
-// Sostituisci con l'URL del tuo backend su Railway
 const API_BASE_URL = 'https://nasa-backend-production-b2e2.up.railway.app';
 
 function flattenAsteroidData(nasaData: any) {
@@ -129,8 +128,12 @@ export default function Home() {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Nome</TableHead><TableHead>Diametro (km)</TableHead><TableHead>Distanza min (km)</TableHead>
-            <TableHead>Velocità (km/h)</TableHead><TableHead>Pericoloso</TableHead><TableHead>Data avvicinamento</TableHead>
+            <TableHead>Nome</TableHead>
+            <TableHead>Diametro (km)</TableHead>
+            <TableHead>Distanza min (km)</TableHead>
+            <TableHead>Velocità (km/h)</TableHead>
+            <TableHead>Pericoloso</TableHead>
+            <TableHead>Data avvicinamento</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -140,7 +143,8 @@ export default function Home() {
               <TableCell>{ast.diameter_min_km.toFixed(2)} - {ast.diameter_max_km.toFixed(2)}</TableCell>
               <TableCell>{ast.miss_distance_km !== 'N/A' ? Number(ast.miss_distance_km).toLocaleString() : 'N/A'}</TableCell>
               <TableCell>{ast.relative_velocity_kmh !== 'N/A' ? Number(ast.relative_velocity_kmh).toLocaleString() : 'N/A'}</TableCell>
-              <TableCell>{ast.hazardous}</TableCell><TableCell>{ast.date}</TableCell>
+              <TableCell>{ast.hazardous}</TableCell>
+              <TableCell>{ast.date}</TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -149,30 +153,44 @@ export default function Home() {
         <h2 className="text-xl font-semibold mb-2">Distribuzione dei diametri minimi (km)</h2>
         {chartData.length > 0 ? (
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={chartData}><XAxis dataKey="range" type="category" /><YAxis /><Tooltip /><Bar dataKey="count" fill="#3182CE" /></BarChart>
+            <BarChart data={chartData}>
+              <XAxis dataKey="range" type="category" />
+              <YAxis />
+              <Tooltip />
+              <Bar dataKey="count" fill="#3182CE" />
+            </BarChart>
           </ResponsiveContainer>
-        ) : <p>Nessun dato per il grafico</p>}
+        ) : (
+          <p>Nessun dato per il grafico</p>
+        )}
       </div>
       {selectedAsteroid && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-auto">
-            <div className="flex justify-between items-center mb-4"><h2 className="text-xl font-bold">{selectedAsteroid.name}</h2><button onClick={() => setSelectedAsteroid(null)} className="text-gray-500 hover:text-gray-700">Chiudi</button></div>
-            {detailsLoading ? <p>Caricamento dettagli...</p> : <div className="space-y-2">
-              <p><strong>ID:</strong> {selectedAsteroid.id}</p>
-              <p><strong>Diametro (km):</strong> {selectedAsteroid.estimated_diameter?.kilometers?.estimated_diameter_min?.toFixed(2)} - {selectedAsteroid.estimated_diameter?.kilometers?.estimated_diameter_max?.toFixed(2)}</p>
-              <p><strong>Magnitudine assoluta:</strong> {selectedAsteroid.absolute_magnitude_h}</p>
-              <p><strong>Pericoloso:</strong> {selectedAsteroid.is_potentially_hazardous_asteroid ? 'Sì' : 'No'}</p>
-              <p><strong>URL JPL:</strong> <a href={selectedAsteroid.nasa_jpl_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">Vai al sito</a></p>
-              <h3 className="font-semibold mt-4">Dati di avvicinamento:</h3>
-              {selectedAsteroid.close_approach_data?.map((approach: any, idx: number) => (
-                <div key={idx} className="border-t pt-2 text-sm">
-                  <p>Data: {approach.close_approach_date_full}</p>
-                  <p>Velocità: {parseFloat(approach.relative_velocity.kilometers_per_hour).toLocaleString()} km/h</p>
-                  <p>Distanza: {parseFloat(approach.miss_distance.kilometers).toLocaleString()} km</p>
-                  <p>Distanza lunare: {parseFloat(approach.miss_distance.lunar).toLocaleString()} LD</p>
-                </div>
-              ))}
-            </div>}
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">{selectedAsteroid.name}</h2>
+              <button onClick={() => setSelectedAsteroid(null)} className="text-gray-500 hover:text-gray-700">Chiudi</button>
+            </div>
+            {detailsLoading ? (
+              <p>Caricamento dettagli...</p>
+            ) : (
+              <div className="space-y-2">
+                <p><strong>ID:</strong> {selectedAsteroid.id}</p>
+                <p><strong>Diametro (km):</strong> {selectedAsteroid.estimated_diameter?.kilometers?.estimated_diameter_min?.toFixed(2)} - {selectedAsteroid.estimated_diameter?.kilometers?.estimated_diameter_max?.toFixed(2)}</p>
+                <p><strong>Magnitudine assoluta:</strong> {selectedAsteroid.absolute_magnitude_h}</p>
+                <p><strong>Pericoloso:</strong> {selectedAsteroid.is_potentially_hazardous_asteroid ? 'Sì' : 'No'}</p>
+                <p><strong>URL JPL:</strong> <a href={selectedAsteroid.nasa_jpl_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">Vai al sito</a></p>
+                <h3 className="font-semibold mt-4">Dati di avvicinamento:</h3>
+                {selectedAsteroid.close_approach_data?.map((approach: any, idx: number) => (
+                  <div key={idx} className="border-t pt-2 text-sm">
+                    <p>Data: {approach.close_approach_date_full}</p>
+                    <p>Velocità: {parseFloat(approach.relative_velocity.kilometers_per_hour).toLocaleString()} km/h</p>
+                    <p>Distanza: {parseFloat(approach.miss_distance.kilometers).toLocaleString()} km</p>
+                    <p>Distanza lunare: {parseFloat(approach.miss_distance.lunar).toLocaleString()} LD</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
