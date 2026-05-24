@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/table';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
+// URL del backend su Railway (già impostato correttamente)
 const API_BASE_URL = 'https://nasa-backend-production-b2e2.up.railway.app';
 
 function flattenAsteroidData(nasaData: any) {
@@ -55,13 +56,13 @@ function prepareDiameterData(asteroidList: any[]) {
 }
 
 export default function Home() {
-  const [data, setData] = useState(null);
+  const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [showOnlyHazardous, setShowOnlyHazardous] = useState(false);
   const [startDate, setStartDate] = useState('2026-05-03');
   const [endDate, setEndDate] = useState('2026-05-10');
-  const [selectedAsteroid, setSelectedAsteroid] = useState(null);
+  const [selectedAsteroid, setSelectedAsteroid] = useState<any>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
 
   const fetchAsteroids = (start: string, end: string) => {
