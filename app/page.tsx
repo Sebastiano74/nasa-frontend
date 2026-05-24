@@ -1,17 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+// Rimuovo import di Table e altri componenti Shadcn non più usati
 
-// URL del backend su Railway (già impostato correttamente)
+// URL backend (fisso)
 const API_BASE_URL = 'https://nasa-backend-production-b2e2.up.railway.app';
 
 function flattenAsteroidData(nasaData: any) {
@@ -29,6 +22,7 @@ function flattenAsteroidData(nasaData: any) {
         relative_velocity_kmh: approach.relative_velocity?.kilometers_per_hour || 'N/A',
         hazardous: asteroid.is_potentially_hazardous_asteroid ? 'Sì' : 'No',
         date: date,
+        close_approach_date_full: approach.close_approach_date_full || null,
       });
     }
   }
@@ -55,6 +49,22 @@ function prepareDiameterData(asteroidList: any[]) {
   return bins.map(bin => ({ range: bin.range, count: bin.count }));
 }
 
+// Funzione per calcolare il countdown verso una data futura
+function getCountdown(targetDateStr: string | null) {
+  if (!targetDateStr) return null;
+  const target = new Date(targetDateStr);
+  if (isNaN(target.getTime())) return null;
+  const now = new Date();
+  const diff = target.getTime() - now.getTime();
+  if (diff <= 0) return { days: 0, hours: 0, minutes: 0, seconds: 0 };
+  const seconds = Math.floor(diff / 1000);
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  return { days, hours, minutes, seconds: secs };
+}
+
 export default function Home() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -64,6 +74,7 @@ export default function Home() {
   const [endDate, setEndDate] = useState('2026-05-10');
   const [selectedAsteroid, setSelectedAsteroid] = useState<any>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
+  const [countdown, setCountdown] = useState<{ days: number; hours: number; minutes: number; seconds: number } | null>(null);
 
   const fetchAsteroids = (start: string, end: string) => {
     setLoading(true);
@@ -82,6 +93,30 @@ export default function Home() {
   useEffect(() => {
     fetchAsteroids(startDate, endDate);
   }, []);
+
+  // Effetto per aggiornare il countdown ogni secondo per il prossimo asteroide pericoloso
+  useEffect(() => {
+    if (!data) return;
+    const asteroidList = flattenAsteroidData(data);
+    const hazardousList = asteroidList.filter(ast => ast.hazardous === 'Sì');
+    if (hazardousList.length === 0) return;
+    // Trova il prossimo asteroide in base alla data di avvicinamento (usando close_approach_date_full)
+    const now = new Date();
+    const nextHazardous = hazardousList
+      .filter(ast => ast.close_approach_date_full)
+      .map(ast => ({ ...ast, approachDate: new Date(ast.close_approach_date_full) }))
+      .filter(ast => ast.approachDate > now)
+      .sort((a, b) => a.approachDate.getTime() - b.approachDate.getTime())[0];
+    if (!nextHazardous) return;
+
+    const updateCountdown = () => {
+      const cd = getCountdown(nextHazardous.close_approach_date_full);
+      setCountdown(cd);
+    };
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, [data]);
 
   const handleSearch = () => {
     if (startDate && endDate) fetchAsteroids(startDate, endDate);
@@ -107,11 +142,18 @@ export default function Home() {
   const asteroidList = flattenAsteroidData(data);
   const filteredList = showOnlyHazardous ? asteroidList.filter(ast => ast.hazardous === 'Sì') : asteroidList;
   const chartData = prepareDiameterData(filteredList);
+  const totalCount = filteredList.length;
+  const hazardousCount = filteredList.filter(ast => ast.hazardous === 'Sì').length;
 
   return (
-    <main className="p-8">
-      <h1 className="text-2xl font-bold mb-4">NASA NEO Dashboard</h1>
-      <div className="flex gap-4 items-end mb-4">
+    <main className="p-8 max-w-6xl mx-auto">
+      <h1 className="text-3xl font-bold mb-4">NASA NEO Dashboard</h1>
+      <p className="mb-2 text-gray-600">
+        Monitoraggio asteroidi in avvicinamento alla Terra tramite API NASA NeoWs.
+      </p>
+
+      {/* Selettore date e filtro */}
+      <div className="flex flex-wrap gap-4 items-end mb-6 mt-4">
         <div>
           <label className="block text-sm font-medium">Data inizio</label>
           <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="border rounded px-2 py-1" />
@@ -121,37 +163,50 @@ export default function Home() {
           <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="border rounded px-2 py-1" />
         </div>
         <button onClick={handleSearch} className="px-4 py-1 bg-green-600 text-white rounded hover:bg-green-700">Cerca</button>
+        <button onClick={() => setShowOnlyHazardous(!showOnlyHazardous)} className={`px-4 py-1 rounded ${showOnlyHazardous ? 'bg-red-600' : 'bg-blue-600'} text-white hover:opacity-80`}>
+          {showOnlyHazardous ? 'Mostra tutti' : 'Mostra solo pericolosi'}
+        </button>
       </div>
-      <p className="mb-4">{filteredList.length} asteroidi {showOnlyHazardous ? '(solo pericolosi)' : '(totali)'}</p>
-      <button onClick={() => setShowOnlyHazardous(!showOnlyHazardous)} className="mb-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
-        {showOnlyHazardous ? 'Mostra tutti' : 'Mostra solo pericolosi'}
-      </button>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Nome</TableHead>
-            <TableHead>Diametro (km)</TableHead>
-            <TableHead>Distanza min (km)</TableHead>
-            <TableHead>Velocità (km/h)</TableHead>
-            <TableHead>Pericoloso</TableHead>
-            <TableHead>Data avvicinamento</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {filteredList.map(ast => (
-            <TableRow key={ast.id} onClick={() => loadDetails(ast.id)} className="cursor-pointer hover:bg-gray-100">
-              <TableCell>{ast.name}</TableCell>
-              <TableCell>{ast.diameter_min_km.toFixed(2)} - {ast.diameter_max_km.toFixed(2)}</TableCell>
-              <TableCell>{ast.miss_distance_km !== 'N/A' ? Number(ast.miss_distance_km).toLocaleString() : 'N/A'}</TableCell>
-              <TableCell>{ast.relative_velocity_kmh !== 'N/A' ? Number(ast.relative_velocity_kmh).toLocaleString() : 'N/A'}</TableCell>
-              <TableCell>{ast.hazardous}</TableCell>
-              <TableCell>{ast.date}</TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+
+      {/* Conteggio asteroidi */}
+      <div className="mb-4 p-4 bg-gray-100 rounded-lg">
+        <p className="text-lg font-semibold">{totalCount} asteroidi trovati</p>
+        <p className="text-md">{hazardousCount} potenzialmente pericolosi</p>
+      </div>
+
+      {/* Countdown per prossimo pericoloso */}
+      {countdown && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-center">
+          <h2 className="text-xl font-bold text-red-700">Prossimo asteroide pericoloso</h2>
+          <div className="text-3xl font-mono mt-2">
+            {countdown.days}d {countdown.hours}h {countdown.minutes}m {countdown.seconds}s
+          </div>
+        </div>
+      )}
+
+      {/* Griglia di card (invece della tabella) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+        {filteredList.map(ast => (
+          <div
+            key={ast.id}
+            onClick={() => loadDetails(ast.id)}
+            className={`cursor-pointer rounded-lg shadow-md p-4 transition-transform hover:scale-105 ${ast.hazardous === 'Sì' ? 'bg-red-50 border-l-8 border-red-600' : 'bg-white border-l-8 border-gray-300'}`}
+          >
+            <h3 className="text-lg font-bold">{ast.name}</h3>
+            <p className="text-sm text-gray-600">Data: {ast.date}</p>
+            <p>Diametro: {ast.diameter_min_km.toFixed(2)} - {ast.diameter_max_km.toFixed(2)} km</p>
+            <p>Distanza: {ast.miss_distance_km !== 'N/A' ? Number(ast.miss_distance_km).toLocaleString() : 'N/A'} km</p>
+            <p>Velocità: {ast.relative_velocity_kmh !== 'N/A' ? Number(ast.relative_velocity_kmh).toLocaleString() : 'N/A'} km/h</p>
+            <p className={`font-bold ${ast.hazardous === 'Sì' ? 'text-red-600' : 'text-green-600'}`}>
+              {ast.hazardous === 'Sì' ? '⚠️ Pericoloso' : '✅ Sicuro'}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      {/* Istogramma */}
       <div className="mt-8">
-        <h2 className="text-xl font-semibold mb-2">Distribuzione dei diametri minimi (km)</h2>
+        <h2 className="text-xl font-semibold mb-2">Distribuzione diametri minimi (km)</h2>
         {chartData.length > 0 ? (
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={chartData}>
@@ -165,6 +220,8 @@ export default function Home() {
           <p>Nessun dato per il grafico</p>
         )}
       </div>
+
+      {/* Modale dettaglio (identico a prima) */}
       {selectedAsteroid && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-auto">
